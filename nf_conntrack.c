@@ -1,4 +1,4 @@
-// This file is part of KASLD
+// This file is part of KASLD - https://github.com/bcoles/kasld
 // Retrieve inet_net kernel symbol virtual address from /sys/kernel/slab/nf_conntrack_*
 // Patched some time around 2016, but still present in RHEL 7.6 as of 2018
 // - https://www.openwall.com/lists/kernel-hardening/2017/10/05/5
@@ -81,8 +81,12 @@ int main (int argc, char **argv) {
 
   printf("leaked init_net: %lx\n", addr);
 
-  printf("kernel base (possible): %lx\n", addr & 0xfffffffffff00000ul);
-  printf("kernel base (possible): %lx\n", addr & 0xffffffffff000000ul);
+  if ((addr & 0xfffffffffff00000ul) == (addr & 0xffffffffff000000ul)) {
+    printf("kernel base (likely): %lx\n", addr & 0xfffffffffff00000ul);
+  } else {
+    printf("kernel base (possible): %lx\n", addr & 0xfffffffffff00000ul);
+    printf("kernel base (possible): %lx\n", addr & 0xffffffffff000000ul);
+  }
 
   return 0;
 }

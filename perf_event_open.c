@@ -1,4 +1,4 @@
-// This file is part of KASLD
+// This file is part of KASLD - https://github.com/bcoles/kasld
 // Infer kernel base by sampling kernel events and taking the lowest address
 // Requires kernel.perf_event_paranoid < 2 (Default on Ubuntu 4.4.0 kernels)
 // Largely based on original code by lizzie:
@@ -153,8 +153,12 @@ int main (int argc, char **argv) {
 
   printf("lowest leaked address: %lx\n", addr);
 
-  printf("kernel base (likely): %lx\n", addr & 0xfffffffffff00000ul);
-  printf("kernel base (likely): %lx\n", addr & 0xffffffffff000000ul);
+  if ((addr & 0xfffffffffff00000ul) == (addr & 0xffffffffff000000ul)) {
+    printf("kernel base (likely): %lx\n", addr & 0xfffffffffff00000ul);
+  } else {
+    printf("kernel base (possible): %lx\n", addr & 0xfffffffffff00000ul);
+    printf("kernel base (possible): %lx\n", addr & 0xffffffffff000000ul);
+  }
 
   return 0;
 }

